@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Contact {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  email         String?
+  notes         String?
+  status        String         @default("active") // "active", "archived", "deleted"
+  source        String         @default("excel")  // "excel", "whatsapp", "manual"
+  conflictStatus String        @default("none")   // "none", "conflict", "resolved"
+  lastMessageAt DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  phoneNumbers  PhoneNumber[]
+  tags          ContactTag[]
+  importRecords ImportRecord[]
+  messages      Message[]
+}
+
+model PhoneNumber {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  originalNumber   String
+  normalizedNumber String   @unique
+  countryCode      String?
+  nationalNumber   String?
+  isValid          Boolean  @default(true)
+  isPrimary        Boolean  @default(false)
+  contactId        String   @db.ObjectId
+  contact          Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+}
+
+model Import {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  fileName         String
+  originalName     String
+  totalRows        Int            @default(0)
+  newContacts      Int            @default(0)
+  existingContacts Int            @default(0)
+  duplicates       Int            @default(0)
+  invalidNumbers   Int            @default(0)
+  conflicts        Int            @default(0)
+  status           String         @default("pending")
+  columnMapping    String?
+  error            String?
+  createdAt        DateTime       @default(now())
+  completedAt      DateTime?
+  records          ImportRecord[]
+  conflictRecords  Conflict[]
+}
+
+model ImportRecord {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  importId        String   @db.ObjectId
+  import          Import   @relation(fields: [importId], references: [id], onDelete: Cascade)
+  contactId       String?  @db.ObjectId
+  contact         Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  originalName    String
+  originalPhone   String
+  normalizedPhone String?
+  status          String
+  reason          String?
+  rowNumber       Int
+  createdAt       DateTime @default(now())
+}
+
+model Conflict {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  importId          String    @db.ObjectId
+  import            Import    @relation(fields: [importId], references: [id], onDelete: Cascade)
+  existingContactId String?   @db.ObjectId
+  existingName      String
+  existingPhone     String
+  incomingName      String
+  incomingPhone     String
+  normalizedPhone   String
+  resolution        String    @default("pending") // "pending", "keep_existing", "use_incoming", "reviewed"
+  resolvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+}
+
+model Message {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  contactId         String?  @db.ObjectId
+  contact           Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  senderPhone       String
+  normalizedPhone   String
+  messageText       String
+  messageType       String   @default("text")
+  timestamp         DateTime @default(now())
+  direction         String   @default("incoming") // "incoming", "outgoing"
+  whatsappMessageId String?  @unique
+  createdAt         DateTime @default(now())
+}
+
+model Tag {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  name      String       @unique
+  color     String       @default("#075E54")
+  contacts  ContactTag[]
+  createdAt DateTime     @default(now())
+}
+
+model ContactTag {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  contactId String   @db.ObjectId
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tagId     String   @db.ObjectId
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([contactId, tagId])
+}
+
+model ActivityLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  action     String
+  entityType String?
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+}

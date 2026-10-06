@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+!.env.example
+.baileys_auth/
+.baileys_auth_*
+.wwebjs_auth/
+uploads/*
+!uploads/.gitkeep
+*.log
